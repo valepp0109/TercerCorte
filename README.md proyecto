@@ -1,0 +1,208 @@
+# 🤖 Chatbot Conversacional en Robot Pepper con API DeepSeek
+
+Este proyecto implementa un sistema conversacional en el robot humanoide Pepper utilizando un chatbot basado en la API de DeepSeek. La arquitectura se basa en un servidor Flask desplegado en Docker, y un cliente Python ejecutado en el robot, que permite la interacción por voz entre humanos y Pepper.
+
+---
+
+## 🧠 Introducción
+
+En el contexto actual de la robótica social y la inteligencia artificial, la interacción humano-robot se ha posicionado como una de las áreas de mayor proyección e impacto. Uno de los principales retos en este campo es lograr que los robots comprendan el lenguaje natural y respondan de manera coherente, fluida y contextualizada, promoviendo así una comunicación más natural con las personas.
+
+Este sistema fue diseñado para permitir que Pepper pueda entablar una conversación básica con humanos mediante preguntas realizadas por voz. Para lograrlo, se implementó una arquitectura cliente-servidor donde el robot Pepper actúa como cliente: capta la voz, la transforma en texto y la envía a un servidor alojado en un PC. Este servidor procesa la pregunta utilizando el modelo de lenguaje DeepSeek y responde con una frase que el robot reproduce con entonación animada.
+
+Esta solución no solo permite mejorar la experiencia de interacción con el robot, sino que también abre la puerta a futuras aplicaciones en áreas como educación, atención al cliente, asistencia social y entornos colaborativos.
+
+---
+
+## 📌 Requisitos
+
+### 🧠 Software
+
+- Python 3.x
+- Flask
+- Docker
+- NAOqi SDK (en el robot Pepper)
+- Conexión WiFi entre Pepper y el PC
+
+### 🔧 Librerías necesarias
+
+En el PC:
+```bash
+pip install flask requests
+```
+
+En el robot (con NAOqi Python):
+```python
+import qi
+import time
+import requests
+```
+
+---
+
+## 🗂️ Estructura del proyecto
+
+```
+chatbot_pepper/
+│
+├── server/
+│   ├── server.py
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── client/
+│   └── cliente_pepper.py
+```
+
+---
+
+## 🚀 Procedimiento paso a paso
+
+### 1. Crear el servidor con Flask
+
+Archivo: `server/server.py`
+
+```python
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    pregunta = data.get('mensaje')
+    respuesta = f"Respuesta a: {pregunta}"
+    return jsonify({"respuesta": respuesta})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=9559)
+```
+
+---
+
+### 2. Crear el Dockerfile
+
+Archivo: `server/Dockerfile`
+
+```Dockerfile
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY server.py .
+
+RUN pip install flask
+
+EXPOSE 9559
+
+CMD ["python", "server.py"]
+```
+
+---
+
+### 3. Construir y ejecutar el contenedor
+
+```bash
+cd server/
+docker build -t chatbot-server .
+docker run -p 9559:9559 chatbot-server
+```
+
+---
+
+### 4. Crear el cliente en el robot Pepper
+
+Archivo: `client/cliente_pepper.py`
+
+```python
+import qi
+import requests
+import time
+
+session = qi.Session()
+session.connect("tcp://127.0.0.1:9559")
+
+speech = session.service("ALSpeechRecognition")
+tts = session.service("ALAnimatedSpeech")
+
+vocabulario = ["hola", "adiós", "cómo estás"]
+speech.setLanguage("Spanish")
+speech.setVocabulary(vocabulario, False)
+speech.subscribe("escucha")
+
+memory = session.service("ALMemory")
+
+def callback(value):
+    pregunta = value
+    try:
+        r = requests.post("http://<IP_DEL_PC>:9559/chat", json={"mensaje": pregunta})
+        respuesta = r.json()["respuesta"]
+        tts.say(respuesta)
+    except:
+        tts.say("Error al conectar con el servidor")
+
+memory.subscribeToEvent("WordRecognized", "python_module", "callback")
+
+while True:
+    time.sleep(1)
+```
+
+✅ Reemplaza `<IP_DEL_PC>` por la IP real de tu computador.
+
+---
+
+### 5. Conectar Pepper con el servidor
+
+Asegúrate de que:
+
+- El robot y el computador estén en la misma red WiFi.
+- El servidor esté corriendo en el puerto 9559.
+- La IP del PC esté correctamente configurada en el script del robot.
+
+---
+
+## 📷 Capturas recomendadas
+
+Para documentar tu proyecto puedes tomar las siguientes capturas:
+
+- Estructura del proyecto (carpetas y archivos).
+- Terminal con `docker run` del servidor.
+- Código del cliente en Pepper.
+- Pepper reconociendo palabras clave.
+- Conversación en tiempo real con el robot.
+
+---
+
+## ✅ Resultado esperado
+
+- El robot reconoce la palabra clave hablada por el usuario.
+- Envía la pregunta al servidor Flask vía POST.
+- El servidor responde con una frase generada por DeepSeek.
+- El robot reproduce la respuesta en voz alta con entonación animada.
+
+---
+
+## 🌟 Mejoras futuras
+
+- Conectar directamente con la API oficial de DeepSeek para respuestas inteligentes.
+- Permitir reconocimiento de frases completas, no solo palabras clave.
+- Agregar interfaz visual para mostrar la conversación en pantalla.
+- Implementar autenticación para proteger la API.
+
+---
+
+## 👩‍💻 Autora
+
+**valepp0109** – Proyecto desarrollado como parte del curso de interacción humano-robot.
+
+Repositorio: [https://github.com/valepp0109/TercerCorte](https://github.com/valepp0109/TercerCorte)
+
+---
+
+## 📚 Referencias
+
+- SoftBank Robotics. (n.d.). *NAOqi SDK Documentation*. https://developer.softbankrobotics.com  
+- Flask Documentation. https://flask.palletsprojects.com  
+- Docker Documentation. https://docs.docker.com  
+- DeepSeek API (vía ejemplo o documentación de prueba)  
+- GitHub – Ejemplo base de implementación: [ChatGPT + Pepper](https://github.com/alejapinzonf/ChatGPT_Pepper_Robot)
